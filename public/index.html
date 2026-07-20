@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b2f2a">
+  <meta name="description" content="A private, self-hosted Canadian personal finance tracker.">
+  <title>BrossefTracker</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#dashboard" aria-label="BrossefTracker home">
+        <span class="brand-mark">B</span>
+        <span><strong>BrossefTracker</strong><small>Personal finance</small></span>
+      </a>
+      <nav class="main-nav" aria-label="Primary navigation">
+        <button class="nav-item active" data-view="dashboard"><span>⌂</span>Overview</button>
+        <button class="nav-item" data-view="activity"><span>↕</span>Activity</button>
+        <button class="nav-item" data-view="imports"><span>⇧</span>Import & review <b id="import-count" hidden>0</b></button>
+        <button class="nav-item" data-view="plan"><span>◎</span>Plan</button>
+        <button class="nav-item" data-view="portfolio"><span>⌁</span>Portfolio</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <button class="nav-item" data-view="settings"><span>⚙</span>Settings</button>
+        <div class="privacy-note"><span>●</span><div><strong>Private by design</strong><small>Data stays on this server</small></div></div>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div><p class="eyebrow" id="today-label">YOUR FINANCIAL COMPASS</p><h1 id="view-title">Overview</h1></div>
+        <div class="topbar-actions">
+          <span id="offline-pill" class="status-pill" hidden>Offline</span>
+          <button id="notification-button" class="icon-button" aria-label="Enable notifications">♢</button>
+          <button class="primary-button quick-add" data-action="quick-add">＋ Add</button>
+        </div>
+      </header>
+
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      <div id="loading" class="loading"><span></span><p>Charting your finances…</p></div>
+
+      <section class="view active" id="view-dashboard" aria-labelledby="view-title">
+        <div class="hero-grid">
+          <article class="net-worth-card">
+            <div class="card-heading"><div><p class="eyebrow light">TOTAL NET WORTH</p><p class="hero-value" id="net-worth">$0.00</p></div><span class="trend-badge" id="net-worth-status">CAD</span></div>
+            <div id="worth-chart" class="worth-chart" aria-label="Net worth composition"></div>
+            <div class="worth-breakdown"><span><i class="asset-dot"></i>Assets <strong id="assets-value">$0</strong></span><span><i class="debt-dot"></i>Liabilities <strong id="liabilities-value">$0</strong></span></div>
+          </article>
+          <article class="card budget-card">
+            <div class="card-heading"><div><p class="eyebrow">THIS PAY PERIOD</p><h2>50 / 30 / 20</h2></div><span id="period-label" class="muted"></span></div>
+            <div class="budget-summary">
+              <div class="budget-ring" id="budget-ring"><div><strong id="budget-remaining">$0</strong><small>remaining</small></div></div>
+              <div id="budget-legend" class="budget-legend"></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="metric-grid">
+          <article class="metric-card"><div class="metric-icon green">⌁</div><div><span>Portfolio value</span><strong id="portfolio-value">$0</strong><small id="portfolio-gain">Add holdings to begin</small></div></article>
+          <article class="metric-card"><div class="metric-icon gold">◇</div><div><span>Goals saved</span><strong id="goals-saved">$0</strong><small id="goal-count">No active goals</small></div></article>
+          <article class="metric-card"><div class="metric-icon coral">↓</div><div><span>Next debt focus</span><strong id="next-debt">None</strong><small id="debt-method">Highest interest first</small></div></article>
+        </div>
+
+        <div class="content-grid">
+          <article class="card span-two"><div class="card-heading"><div><p class="eyebrow">MONEY IN MOTION</p><h2>Recent activity</h2></div><button class="text-button" data-view-link="activity">View all →</button></div><div id="recent-transactions" class="transaction-list"></div></article>
+          <article class="card"><div class="card-heading"><div><p class="eyebrow">UP NEXT</p><h2>Bills due</h2></div><button class="circle-button" data-action="add-bill">＋</button></div><div id="bills-due" class="bill-list"></div></article>
+        </div>
+
+        <article class="card insight-card" id="daily-insight">
+          <div class="insight-mark">✦</div><div><p class="eyebrow">DAILY PORTFOLIO NOTE</p><h2>Your first report is waiting</h2><p>Add TSX, NASDAQ, or NYSE holdings and refresh delayed market data to generate transparent buy, hold, and sell signals.</p></div><button class="secondary-button" data-view-link="portfolio">Open portfolio</button>
+        </article>
+      </section>
+
+      <section class="view" id="view-activity">
+        <div class="section-toolbar"><div><p class="section-copy">Review every dollar across your accounts.</p></div><button class="primary-button" data-action="add-transaction">＋ Transaction</button></div>
+        <article class="card">
+          <div class="filters"><input id="transaction-search" type="search" placeholder="Search transactions"><select id="transaction-category"><option value="">All categories</option><option value="needs">Needs</option><option value="wants">Wants</option><option value="savings">Savings</option><option value="income">Income</option></select></div>
+          <div class="table-wrap"><table><thead><tr><th>Date</th><th>Description</th><th>Account</th><th>Category</th><th class="right">Amount</th><th></th></tr></thead><tbody id="transaction-table"></tbody></table></div>
+        </article>
+      </section>
+
+      <section class="view" id="view-imports">
+        <div class="import-layout">
+          <article class="upload-card">
+            <div class="upload-icon">⇧</div><p class="eyebrow">SECURE IMPORT</p><h2>Bring your statements together</h2><p>Upload BMO, Wealthsimple, or PC Financial statements. Nothing is saved as a transaction until you approve it.</p>
+            <form id="import-form">
+              <label class="drop-zone" for="import-file"><strong>Choose a PDF or Excel file</strong><span>PDF, XLSX, CSV, or TSV · maximum 20 MB</span><input id="import-file" name="file" type="file" accept=".pdf,.xlsx,.csv,.tsv" required></label>
+              <label>Institution<select name="institution"><option>BMO</option><option>Wealthsimple</option><option>PC Financial</option><option>Other</option></select></label>
+              <button class="primary-button full" type="submit">Extract for review</button>
+            </form>
+          </article>
+          <div><div class="section-heading"><div><p class="eyebrow">REVIEW QUEUE</p><h2>Pending imports</h2></div></div><div id="import-list" class="stack"></div></div>
+        </div>
+      </section>
+
+      <section class="view" id="view-plan">
+        <div class="plan-summary">
+          <article class="card"><p class="eyebrow">YOUR RULE</p><h2 id="plan-rule">50% Needs · 30% Wants · 20% Savings</h2><p>Debt lives under Needs. Investing and big purchases live under Savings.</p><button class="secondary-button" data-view-link="settings">Adjust percentages</button></article>
+          <article class="card debt-focus"><p class="eyebrow light">DEBT STRATEGY</p><h2 id="debt-strategy-name">Avalanche</h2><p id="debt-strategy-copy">Focus extra payments on the highest interest rate first.</p><button class="inverted-button" data-action="toggle-debt-method">Switch method</button></article>
+        </div>
+        <div class="section-heading"><div><p class="eyebrow">SAVINGS</p><h2>Big purchase goals</h2></div><button class="primary-button" data-action="add-goal">＋ New goal</button></div>
+        <div id="goals-grid" class="goal-grid"></div>
+        <div class="section-heading"><div><p class="eyebrow">NEEDS</p><h2>Debt payoff</h2></div><button class="secondary-button" data-action="add-debt">＋ Add debt</button></div>
+        <div id="debt-list" class="stack"></div>
+        <div class="section-heading"><div><p class="eyebrow">ACCOUNTS</p><h2>Balances</h2></div><button class="secondary-button" data-action="add-account">＋ Add account</button></div>
+        <div id="account-grid" class="account-grid"></div>
+      </section>
+
+      <section class="view" id="view-portfolio">
+        <div class="portfolio-hero">
+          <div><p class="eyebrow light">LONG-TERM VIEW · AGGRESSIVE · 20–25 YEARS</p><h2 id="portfolio-hero-value">$0.00</h2><p id="portfolio-updated">Delayed Canadian and U.S. data · not refreshed yet</p></div>
+          <div class="portfolio-actions"><button class="inverted-button" data-action="add-holding">＋ Add holding</button><label class="inverted-button upload-holdings">⇧ Upload<input id="holdings-file" type="file" accept=".xlsx,.csv,.tsv"></label><button class="light-button" id="refresh-market">Refresh market data</button></div>
+        </div>
+        <div class="disclosure"><strong>Decision support, not a promise.</strong> Signals combine trend and concentration indicators. They cannot predict returns and do not replace advice from a registered Canadian adviser.</div>
+        <div id="portfolio-account-grid" class="portfolio-account-grid"></div>
+        <div class="section-heading"><div><p class="eyebrow">TODAY'S SIGNALS</p><h2>Holdings analysis by account</h2></div><span class="muted">Benchmarks: S&amp;P/TSX · S&amp;P 500</span></div>
+        <div id="holdings-list" class="stack"></div>
+        <article class="card"><div class="card-heading"><div><p class="eyebrow">ACCOUNT LOCATION</p><h2>Canadian tax view</h2></div></div><div id="tax-insights" class="tax-grid"></div></article>
+      </section>
+
+      <section class="view" id="view-settings">
+        <div class="settings-grid">
+          <form id="settings-form" class="card form-card">
+            <div><p class="eyebrow">FOUNDATION</p><h2>Income and budget</h2></div>
+            <label>Biweekly take-home income (CAD)<input name="incomePerPay" type="number" min="0" step="0.01"></label>
+            <label>Pay-cycle anchor<input name="nextPayDate" type="date"></label>
+            <fieldset><legend>Budget percentages</legend><div class="three-fields"><label>Needs %<input name="needs" type="number" min="0" max="100"></label><label>Wants %<input name="wants" type="number" min="0" max="100"></label><label>Savings %<input name="savings" type="number" min="0" max="100"></label></div><small>These must total 100%. Debt counts as Needs; investing counts as Savings.</small></fieldset>
+            <label>Debt strategy<select name="debtMethod"><option value="avalanche">Avalanche — highest rate first</option><option value="snowball">Snowball — smallest balance first</option></select></label>
+            <label>Daily market refresh hour<select name="marketRefreshHour"><option value="16">4:00 PM</option><option value="18">6:00 PM</option><option value="20">8:00 PM</option></select></label>
+            <button class="primary-button" type="submit">Save settings</button>
+          </form>
+          <div class="stack">
+            <article class="card"><p class="eyebrow">INSTALLABLE APP</p><h2>Use BrossefTracker anywhere at home</h2><p>Install this PWA from your browser for an app-like experience. Cached dashboards and new offline entries synchronize when the server returns.</p><button id="install-button" class="secondary-button" disabled>Install app</button></article>
+            <article class="card"><p class="eyebrow">DATA & PRIVACY</p><h2>Your server is the vault</h2><p>BrossefTracker does not include remote analytics or cloud storage. Protect your Portainer volume with your existing external backup process.</p><div class="privacy-list"><span>✓ Home-network deployment</span><span>✓ Review-before-save imports</span><span>✓ No automated trading</span><span>✓ Local persistent data</span></div></article>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="form-dialog"><form id="dialog-form"><div class="dialog-heading"><div><p class="eyebrow" id="dialog-eyebrow">ADD</p><h2 id="dialog-title">New item</h2></div><button class="icon-button" type="button" data-action="close-form" aria-label="Close">×</button></div><div id="dialog-fields" class="dialog-fields"></div><div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-form">Cancel</button><button class="primary-button" id="dialog-submit" type="submit">Save</button></div></form></dialog>
+  <dialog id="review-dialog" class="review-dialog"><div class="dialog-heading"><div><p class="eyebrow">IMPORT REVIEW</p><h2 id="review-title">Review transactions</h2></div><button class="icon-button" data-action="close-review" aria-label="Close">×</button></div><p class="muted">Correct each row before approval. Check “remember” to reuse a merchant classification.</p><div class="table-wrap"><table><thead><tr><th>Use</th><th>Date</th><th>Description</th><th>Category</th><th>Subcategory</th><th class="right">Amount</th><th>Remember</th></tr></thead><tbody id="review-table"></tbody></table></div><div class="dialog-actions"><button class="secondary-button" data-action="close-review">Cancel</button><button class="primary-button" id="approve-import">Approve selected</button></div></dialog>
+  <dialog id="holding-review-dialog" class="review-dialog"><div class="dialog-heading"><div><p class="eyebrow">HOLDINGS REVIEW</p><h2>Approve portfolio holdings</h2></div><button class="icon-button" data-action="close-holding-review" aria-label="Close">×</button></div><p class="muted">Confirm ticker symbols, exchanges, quantities, average costs, and account types before saving.</p><div class="table-wrap"><table><thead><tr><th>Use</th><th>Symbol</th><th>Market</th><th>Name</th><th>Shares</th><th>Average cost</th><th>Account</th></tr></thead><tbody id="holding-review-table"></tbody></table></div><div class="dialog-actions"><button class="secondary-button" data-action="close-holding-review">Cancel</button><button class="primary-button" id="approve-holdings">Approve holdings</button></div></dialog>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

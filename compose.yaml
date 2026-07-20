@@ -1,0 +1,26 @@
+services:
+  brossef-tracker:
+    image: ghcr.io/${GITHUB_OWNER}/brossef-tracker:latest
+    container_name: brossef-tracker
+    restart: unless-stopped
+    pull_policy: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATA_DIR: /data
+      TZ: America/Toronto
+    ports:
+      - "3000:3000"
+    volumes:
+      - brossef-data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid
+
+volumes:
+  brossef-data:
+    name: brossef-tracker-data
