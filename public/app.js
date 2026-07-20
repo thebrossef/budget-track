@@ -17,6 +17,13 @@ function asDate(value) { const date = new Date(`${value}T12:00:00`); return Numb
 function initials(value) { return String(value || '?').split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase(); }
 function currencyMoney(value, currency = 'CAD') { return new Intl.NumberFormat('en-CA', { style: 'currency', currency: currency === 'USD' ? 'USD' : 'CAD' }).format(Number(value) || 0); }
 function toast(message, error = false) { const el = $('#toast'); el.textContent = message; el.className = `toast show${error ? ' error' : ''}`; clearTimeout(toast.timer); toast.timer = setTimeout(() => { el.className = 'toast'; }, 3200); }
+async function showAppVersion() {
+  try {
+    const response = await fetch('/api/health', { cache: 'no-store' });
+    const health = await response.json();
+    $('#app-version').textContent = `Build ${health.version || 'unknown'}`;
+  } catch { $('#app-version').textContent = 'Build unavailable'; }
+}
 
 async function api(url, options = {}) {
   try {
@@ -160,6 +167,6 @@ async function updateNetworkStatus() { $('#offline-pill').hidden = navigator.onL
 document.addEventListener('click', (event) => { const nav = event.target.closest('[data-view]'); if (nav) showView(nav.dataset.view); const action = event.target.closest('[data-action]')?.dataset.action; if (action === 'quick-add' || action === 'add-transaction') openForm('transaction'); if (action === 'add-bill') openForm('bill'); if (action === 'add-goal') openForm('goal'); if (action === 'add-debt') openForm('debt'); if (action === 'add-account') openForm('account'); if (action === 'add-holding') openForm('holding'); if (action === 'toggle-debt-method') toggleDebtMethod(); if (action === 'close-review') $('#review-dialog').close(); if (action === 'close-holding-review') $('#holding-review-dialog').close(); if (action === 'close-form') $('#form-dialog').close(); });
 $('#dialog-form').addEventListener('submit', submitDialog); $('#import-form').addEventListener('submit', importFile); $('#holdings-file').addEventListener('change', uploadHoldings); $('#settings-form').addEventListener('submit', saveSettings); $('#approve-import').addEventListener('click', approveImport); $('#approve-holdings').addEventListener('click', approveHoldings); $('#refresh-market').addEventListener('click', refreshMarket); $('#transaction-search').addEventListener('input', renderTransactions); $('#transaction-category').addEventListener('change', renderTransactions); $('#notification-button').addEventListener('click', enableNotifications);
 window.addEventListener('beforeinstallprompt', (event) => { event.preventDefault(); deferredInstall = event; $('#install-button').disabled = false; }); $('#install-button').addEventListener('click', async () => { if (!deferredInstall) return; deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; $('#install-button').disabled = true; }); window.addEventListener('online', updateNetworkStatus); window.addEventListener('offline', updateNetworkStatus);
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {});
 $('#today-label').textContent = new Date().toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase();
-showView(location.hash.slice(1) || 'dashboard'); updateNetworkStatus(); loadState().then(checkAlerts).catch((error) => { $('#loading').innerHTML = `<p>${escapeHtml(error.message)}</p>`; });
+showView(location.hash.slice(1) || 'dashboard'); updateNetworkStatus(); showAppVersion(); loadState().then(checkAlerts).catch((error) => { $('#loading').innerHTML = `<p>${escapeHtml(error.message)}</p>`; });

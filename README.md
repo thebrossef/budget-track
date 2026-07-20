@@ -41,8 +41,8 @@ Open `http://localhost:3000`. Data is written to `./data/finance.json` during lo
 ## GitHub and Portainer deployment
 
 1. Create a GitHub repository and push this project to its `main` branch.
-2. In Portainer's stack environment variables, set `GITHUB_OWNER` to the repository owner's lowercase GitHub username or organization. For local Compose, copy `.env.example` to `.env` and update it.
-3. GitHub Actions builds and publishes `ghcr.io/<owner>/brossef-tracker:latest` after each push to `main`.
+2. GitHub Actions builds and publishes `ghcr.io/thebrossef/budget-track:latest` after each push to `main`.
+3. The included `compose.yaml` uses that same image address, so no GitHub owner environment variable is required in Portainer.
 4. If the repository/package is private, create a GitHub classic personal access token with `read:packages`. In Portainer, add `ghcr.io` as a registry using your GitHub username and that token.
 5. In Portainer, create a **Stack** from the Git repository and point it to `compose.yaml`, or paste the Compose file into the editor.
 6. Enable Portainer's Git polling/webhook or image update workflow if you want automatic deployments after a new image is published.
