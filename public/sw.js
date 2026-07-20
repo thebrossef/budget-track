@@ -1,4 +1,4 @@
-const CACHE = 'brosseftracker-v5';
+const CACHE = 'brosseftracker-v6';
 const SHELL = ['/', '/index.html', '/styles.css', '/app.js', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png'];
 self.addEventListener('install', (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting())));
 self.addEventListener('activate', (event) => event.waitUntil((async () => {

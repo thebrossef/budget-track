@@ -12,6 +12,7 @@ test('pay cycle uses the July 23, 2026 Thursday anchor', () => {
 
 test('Canadian ticker symbols default to Toronto', () => {
   assert.equal(marketSymbol('xeqt'), 'XEQT.TO');
+  assert.equal(marketSymbol('QQQ'), 'QQQ');
   assert.equal(marketSymbol('QQQ', 'NASDAQ'), 'QQQ');
   assert.equal(marketSymbol('IBM', 'NYSE'), 'IBM');
   assert.equal(marketSymbol('SHOP.TO'), 'SHOP.TO');

@@ -7,7 +7,7 @@ const { refreshPortfolio } = require('./src/market');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
-const appVersion = process.env.APP_VERSION || '2026.07.20.2';
+const appVersion = process.env.APP_VERSION || '2026.07.20.3';
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 } });
 const collections = new Set(['accounts', 'transactions', 'bills', 'goals', 'debts', 'holdings']);
 

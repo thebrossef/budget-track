@@ -1,10 +1,22 @@
 const USER_AGENT = 'BrossefTracker/0.1 personal-self-hosted-app';
+const LEGACY_NASDAQ_SYMBOLS = new Set(['QQQ', 'QQQM', 'AAPL', 'MSFT', 'NVDA', 'AMZN', 'META', 'GOOG', 'GOOGL', 'TSLA', 'AVGO', 'COST']);
+const LEGACY_NYSE_SYMBOLS = new Set(['SPY', 'VOO', 'VTI', 'IVV', 'DIA', 'IWM', 'SCHD', 'VT']);
 
-function marketSymbol(symbol, market = 'TSX') {
+function inferMarket(symbol, market) {
+  const requested = String(market || '').trim().toUpperCase();
+  if (requested) return requested;
+  const clean = String(symbol || '').trim().toUpperCase();
+  if (clean.endsWith('.TO')) return 'TSX';
+  if (LEGACY_NASDAQ_SYMBOLS.has(clean)) return 'NASDAQ';
+  if (LEGACY_NYSE_SYMBOLS.has(clean)) return 'NYSE';
+  return 'TSX';
+}
+
+function marketSymbol(symbol, market) {
   const clean = String(symbol || '').trim().toUpperCase();
   if (!clean) return '';
   if (clean.startsWith('^') || clean.includes('.') || clean.includes('-') || clean.includes('=')) return clean;
-  if (['NYSE', 'NASDAQ', 'US', 'S&P', 'S&P 500', 'SP500'].includes(String(market || '').trim().toUpperCase())) return clean;
+  if (['NYSE', 'NASDAQ', 'US', 'S&P', 'S&P 500', 'SP500'].includes(inferMarket(clean, market))) return clean;
   return `${clean}.TO`;
 }
 
@@ -69,7 +81,7 @@ function assessHolding(holding, quote, portfolioValue, cadRate = 1) {
 }
 
 async function refreshPortfolio(holdings) {
-  const quoteResults = await Promise.allSettled(holdings.map((holding) => fetchChart(holding.symbol, holding.exchange || 'TSX')));
+  const quoteResults = await Promise.allSettled(holdings.map((holding) => fetchChart(holding.symbol, holding.exchange)));
   const quotes = quoteResults.map((result, index) => result.status === 'fulfilled'
     ? { holding: holdings[index], quote: result.value }
     : { holding: holdings[index], error: result.reason.message });
@@ -98,4 +110,4 @@ async function refreshPortfolio(holdings) {
   return { generatedAt: new Date().toISOString(), delayed: true, portfolioValue, cadPerUsd, benchmarks, holdings: assessments, summary };
 }
 
-module.exports = { marketSymbol, fetchChart, assessHolding, refreshPortfolio };
+module.exports = { inferMarket, marketSymbol, fetchChart, assessHolding, refreshPortfolio };

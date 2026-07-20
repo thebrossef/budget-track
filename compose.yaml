@@ -1,7 +1,7 @@
 services:
   brossef-tracker:
     image: ghcr.io/thebrossef/budget-track:latest
-    container_name: budget-track
+    container_name: brossef-tracker
     restart: unless-stopped
     pull_policy: always
     environment:
@@ -9,7 +9,7 @@ services:
       PORT: 3001
       DATA_DIR: /data
       TZ: America/Toronto
-      APP_VERSION: 2026.07.20.2
+      APP_VERSION: 2026.07.20.3
     ports:
       - "3001:3001"
     volumes:
