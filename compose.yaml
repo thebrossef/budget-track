@@ -9,7 +9,7 @@ services:
       PORT: 3001
       DATA_DIR: /data
       TZ: America/Toronto
-      APP_VERSION: 2026.07.20.3
+      APP_VERSION: 2026.07.20.5
     ports:
       - "3001:3001"
     volumes:
