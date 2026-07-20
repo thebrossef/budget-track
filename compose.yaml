@@ -1,6 +1,6 @@
 services:
   brossef-tracker:
-    image: ghcr.io/${GITHUB_OWNER}/brossef-tracker:latest
+    image: ghcr.io/thebrossef/budget-track:latest
     container_name: brossef-tracker
     restart: unless-stopped
     pull_policy: always
