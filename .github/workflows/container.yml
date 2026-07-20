@@ -25,7 +25,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/thebrossef/brossef-tracker
+          images: ghcr.io/thebrossef/budget-track
           tags: |
             type=raw,value=latest
             type=sha
