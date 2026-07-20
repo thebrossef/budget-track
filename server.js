@@ -7,7 +7,7 @@ const { refreshPortfolio } = require('./src/market');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
-const appVersion = process.env.APP_VERSION || '2026.07.20.4';
+const appVersion = process.env.APP_VERSION || '2026.07.20.5';
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 } });
 const collections = new Set(['accounts', 'transactions', 'bills', 'goals', 'debts', 'holdings']);
 const managedInvestmentTypes = new Set(['TFSA MANAGED', 'RRSP MANAGED', 'LIRA']);
@@ -179,6 +179,7 @@ app.post('/api/imports', upload.single('file'), async (request, response, next) 
     if (!request.file) return response.status(400).json({ error: 'Choose a file to import.' });
     const state = getState();
     const parsed = await parseUpload(request.file);
+    if (!parsed.length) return response.status(422).json({ error: 'No transaction rows were found. For a scanned or password-protected PDF, export transactions from your bank as CSV or XLSX. For Excel, make sure it includes Date, Description, and Amount/Debit/Credit columns.' });
     const rows = applyRules(parsed, state.merchantRules).map((row) => ({ ...row, id: id('row') }));
     const batch = await mutate((current) => {
       const created = { id: id('import'), filename: request.file.originalname, institution: request.body.institution || '', status: 'pending', rows, createdAt: new Date().toISOString() };

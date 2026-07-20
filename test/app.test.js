@@ -67,10 +67,44 @@ test('modern Excel statements parse into review rows', async () => {
   assert.equal(rows[0].amount, 12.34);
 });
 
+test('Excel statements tolerate preamble rows, null cells, and rich text', async () => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('BMO Export');
+  sheet.addRow(['BMO account activity statement']);
+  sheet.addRow([]);
+  sheet.addRow(['Transaction Date', 'Transaction Description', 'Debit', 'Credit']);
+  sheet.addRow([new Date('2026-07-19T12:00:00Z'), { richText: [{ text: 'Payroll ' }, { text: 'deposit' }] }, null, 1500]);
+  const buffer = await workbook.xlsx.writeBuffer();
+  const rows = await parseUpload({ originalname: 'bmo.xlsx', buffer: Buffer.from(buffer) });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].description, 'Payroll deposit');
+  assert.equal(rows[0].amount, 1500);
+  assert.equal(rows[0].type, 'income');
+});
+
+test('merchant rules ignore null rows and incomplete saved rules', () => {
+  const rows = applyRules([null, { description: null }, { description: 'Coffee Shop', category: 'wants', subcategory: 'Dining' }], [null, { pattern: null }, { pattern: 'coffee', category: 'wants', subcategory: 'Coffee' }]);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].subcategory, 'Coffee');
+});
+
 test('Wealthsimple-style holdings parse for approval', async () => {
   const buffer = Buffer.from('Symbol,Security Name,Quantity,Average Cost,Account Type\nXEQT,iShares Core Equity ETF,12.5,31.25,TFSA');
   const rows = await parseHoldingsUpload({ originalname: 'holdings.csv', buffer });
   assert.deepEqual(rows[0], { symbol: 'XEQT', name: 'iShares Core Equity ETF', shares: 12.5, costBasis: 31.25, exchange: 'TSX', accountType: 'TFSA', sector: '' });
+});
+
+test('Excel holdings tolerate statement titles before their headers', async () => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Holdings');
+  sheet.addRow(['Wealthsimple holdings report']);
+  sheet.addRow(['Symbol', 'Security Name', 'Quantity', 'Average Cost', 'Account Type']);
+  sheet.addRow(['QQQ', 'Invesco QQQ', 3, 500, 'TFSA']);
+  const buffer = await workbook.xlsx.writeBuffer();
+  const rows = await parseHoldingsUpload({ originalname: 'holdings.xlsx', buffer: Buffer.from(buffer) });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].symbol, 'QQQ');
+  assert.equal(rows[0].shares, 3);
 });
 
 test('dashboard respects the three category rule', () => {
