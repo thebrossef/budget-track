@@ -6,11 +6,11 @@ services:
     pull_policy: always
     environment:
       NODE_ENV: production
-      PORT: 3000
+      PORT: 3001
       DATA_DIR: /data
       TZ: America/Toronto
     ports:
-      - "3000:3000"
+      - "3001:3001"
     volumes:
       - brossef-data:/data
     security_opt:
