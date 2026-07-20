@@ -6,7 +6,7 @@ const dataDir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 const dataFile = path.join(dataDir, 'finance.json');
 
 const seed = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   settings: {
     currency: 'CAD',
     payFrequency: 'biweekly',
@@ -35,16 +35,11 @@ let writeQueue = Promise.resolve();
 
 const legacyNasdaqSymbols = new Set(['QQQ', 'QQQM', 'AAPL', 'MSFT', 'NVDA', 'AMZN', 'META', 'GOOG', 'GOOGL', 'TSLA', 'AVGO', 'COST']);
 const legacyNyseSymbols = new Set(['SPY', 'VOO', 'VTI', 'IVV', 'DIA', 'IWM', 'SCHD', 'VT']);
+const managedInvestmentTypes = new Set(['TFSA Managed', 'RRSP Managed', 'LIRA']);
 
-function normalizeLegacyHolding(holding) {
-  const normalized = { ...holding };
-  const symbol = String(normalized.symbol || '').trim().toUpperCase();
-  normalized.symbol = symbol;
-  if (!normalized.exchange) {
-    normalized.exchange = symbol.endsWith('.TO') ? 'TSX' : legacyNasdaqSymbols.has(symbol) ? 'NASDAQ' : legacyNyseSymbols.has(symbol) ? 'NYSE' : 'TSX';
-  } else normalized.exchange = String(normalized.exchange).trim().toUpperCase();
-  const account = String(normalized.accountType || '').trim().toUpperCase();
-  const accounts = {
+function normalizedInvestmentAccountType(value) {
+  const type = String(value || '').trim().toUpperCase();
+  const types = {
     TFSA: 'TFSA',
     'TFSA MANAGED': 'TFSA Managed',
     'MANAGED TFSA': 'TFSA Managed',
@@ -53,8 +48,47 @@ function normalizeLegacyHolding(holding) {
     'MANAGED RRSP': 'RRSP Managed',
     LIRA: 'LIRA'
   };
-  if (accounts[account]) normalized.accountType = accounts[account];
+  return types[type] || value;
+}
+
+function normalizeLegacyHolding(holding) {
+  const normalized = { ...holding };
+  const symbol = String(normalized.symbol || '').trim().toUpperCase();
+  normalized.symbol = symbol;
+  if (!normalized.exchange) {
+    normalized.exchange = symbol.endsWith('.TO') ? 'TSX' : legacyNasdaqSymbols.has(symbol) ? 'NASDAQ' : legacyNyseSymbols.has(symbol) ? 'NYSE' : 'TSX';
+  } else normalized.exchange = String(normalized.exchange).trim().toUpperCase();
+  normalized.accountType = normalizedInvestmentAccountType(normalized.accountType);
   return normalized;
+}
+
+function normalizeLegacyAccount(account) {
+  const normalized = { ...account };
+  normalized.type = normalizedInvestmentAccountType(normalized.type);
+  return normalized;
+}
+
+function migrateManagedHoldings(targetState) {
+  const managedHoldings = targetState.holdings.filter((holding) => managedInvestmentTypes.has(normalizedInvestmentAccountType(holding.accountType)));
+  if (!managedHoldings.length) return 0;
+  for (const type of managedInvestmentTypes) {
+    const holdings = managedHoldings.filter((holding) => normalizedInvestmentAccountType(holding.accountType) === type);
+    if (!holdings.length || targetState.accounts.some((account) => normalizedInvestmentAccountType(account.type) === type && account.kind !== 'liability')) continue;
+    const balance = holdings.reduce((sum, holding) => sum + Number(holding.marketValue || (Number(holding.shares || 0) * Number(holding.price || holding.costBasis || 0))), 0);
+    targetState.accounts.unshift({
+      id: `account_${crypto.randomUUID()}`,
+      name: `${type} balance`,
+      institution: 'Wealthsimple',
+      type,
+      kind: 'asset',
+      balance,
+      includeInNetWorth: true,
+      migratedFromLegacyHoldings: true,
+      createdAt: new Date().toISOString()
+    });
+  }
+  targetState.holdings = targetState.holdings.filter((holding) => !managedInvestmentTypes.has(normalizedInvestmentAccountType(holding.accountType)));
+  return managedHoldings.length;
 }
 
 function clone(value) {
@@ -71,13 +105,18 @@ function load() {
   }
   try {
     const parsed = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+    const previousSchemaVersion = Number(parsed.schemaVersion || 0);
     state = { ...clone(seed), ...parsed, settings: { ...seed.settings, ...(parsed.settings || {}) } };
     const originalHoldings = JSON.stringify(state.holdings || []);
+    const originalAccounts = JSON.stringify(state.accounts || []);
     state.holdings = (state.holdings || []).map(normalizeLegacyHolding);
+    state.accounts = (state.accounts || []).map(normalizeLegacyAccount);
+    const migratedManagedHoldings = previousSchemaVersion < 3 ? migrateManagedHoldings(state) : 0;
     const holdingsChanged = originalHoldings !== JSON.stringify(state.holdings);
-    if (Number(state.schemaVersion || 0) < seed.schemaVersion || holdingsChanged) {
+    const accountsChanged = originalAccounts !== JSON.stringify(state.accounts);
+    if (Number(state.schemaVersion || 0) < seed.schemaVersion || holdingsChanged || accountsChanged) {
       state.schemaVersion = seed.schemaVersion;
-      if (holdingsChanged) state.marketReports = [];
+      if (previousSchemaVersion < 3 || holdingsChanged || migratedManagedHoldings) state.marketReports = [];
       fs.writeFileSync(dataFile, JSON.stringify(state, null, 2));
     }
   } catch (error) {
@@ -115,4 +154,4 @@ function id(prefix = 'item') {
 
 load();
 
-module.exports = { getState, mutate, id, dataFile };
+module.exports = { getState, mutate, id, dataFile, migrateManagedHoldings };

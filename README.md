@@ -12,7 +12,7 @@ BrossefTracker is a private, single-user Canadian personal-finance PWA designed 
 - Learned merchant-category rules when **Remember** is selected during approval
 - Accounts for chequing, savings, credit, TFSA, TFSA Managed, RRSP Managed, LIRA, FHSA, taxable investments, mortgages, loans, and other assets or liabilities
 - Manual or XLSX/CSV/TSV holdings entry with editable shares and average purchase prices after import
-- Separate TFSA, TFSA Managed, RRSP Managed, and LIRA portfolio analysis sections
+- Separate TFSA, TFSA Managed, RRSP Managed, and LIRA portfolio sections; managed account balances are static, editable Wealthsimple values that never use ticker lookup
 - TSX, NASDAQ, and NYSE symbol support; delayed CAD/USD quotes; CAD-converted totals; transparent buy/hold/sell scores; and S&P/TSX plus S&P 500 benchmark context
 - PWA installation, cached offline dashboard access, offline record queueing, and browser notifications
 - Persistent local JSON data stored atomically in a Docker volume

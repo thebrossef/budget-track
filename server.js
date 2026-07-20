@@ -7,9 +7,18 @@ const { refreshPortfolio } = require('./src/market');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
-const appVersion = process.env.APP_VERSION || '2026.07.20.3';
+const appVersion = process.env.APP_VERSION || '2026.07.20.4';
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 } });
 const collections = new Set(['accounts', 'transactions', 'bills', 'goals', 'debts', 'holdings']);
+const managedInvestmentTypes = new Set(['TFSA MANAGED', 'RRSP MANAGED', 'LIRA']);
+
+function normalizedAccountType(value) {
+  const type = String(value || '').trim().toUpperCase();
+  if (type === 'MANAGED TFSA') return 'TFSA MANAGED';
+  if (type === 'RRSP' || type === 'MANAGED RRSP') return 'RRSP MANAGED';
+  return type;
+}
+function isManagedInvestmentType(value) { return managedInvestmentTypes.has(normalizedAccountType(value)); }
 
 app.disable('x-powered-by');
 app.use((request, response, next) => {
@@ -64,9 +73,13 @@ function dashboard(state) {
   const targets = Object.fromEntries(Object.entries(state.settings.budget).map(([key, percent]) => [key, round(income * percent / 100)]));
   const accountAssets = state.accounts.filter((item) => item.kind !== 'liability' && item.includeInNetWorth !== false).reduce((sum, item) => sum + Number(item.balance || 0), 0);
   const accountLiabilities = state.accounts.filter((item) => item.kind === 'liability' && item.includeInNetWorth !== false).reduce((sum, item) => sum + Math.abs(Number(item.balance || 0)), 0);
-  const portfolioValue = state.marketReports[0]?.portfolioValue || state.holdings.reduce((sum, item) => sum + Number(item.shares || 0) * Number(item.price || item.costBasis || 0), 0);
+  const marketHoldings = state.holdings.filter((item) => !isManagedInvestmentType(item.accountType));
+  const quotedHoldingsValue = state.marketReports[0]?.portfolioValue;
+  const holdingsValue = quotedHoldingsValue ?? marketHoldings.reduce((sum, item) => sum + Number(item.shares || 0) * Number(item.price || item.costBasis || 0), 0);
+  const managedInvestmentValue = state.accounts.filter((item) => isManagedInvestmentType(item.type) && item.kind !== 'liability').reduce((sum, item) => sum + Number(item.balance || 0), 0);
+  const portfolioValue = round(holdingsValue + managedInvestmentValue);
   const debts = state.debts.reduce((sum, item) => sum + Number(item.balance || 0), 0);
-  const assets = round(accountAssets + portfolioValue);
+  const assets = round(accountAssets + holdingsValue);
   const liabilities = round(accountLiabilities + debts);
   const sortedDebts = [...state.debts].sort(state.settings.debtMethod === 'snowball'
     ? (a, b) => Number(a.balance) - Number(b.balance)
@@ -80,7 +93,9 @@ function dashboard(state) {
     assets,
     liabilities,
     netWorth: round(assets - liabilities),
-    portfolioValue: round(portfolioValue),
+    portfolioValue,
+    marketHoldingsValue: round(holdingsValue),
+    managedInvestmentValue: round(managedInvestmentValue),
     portfolioGain: round(state.marketReports[0]?.holdings?.reduce((sum, item) => sum + Number(item.assessment?.gain || 0), 0) || 0),
     goalsSaved: round(state.goals.reduce((sum, item) => sum + Number(item.current || 0), 0)),
     nextDebt: sortedDebts[0] || null,
@@ -119,6 +134,7 @@ app.post('/api/:collection', async (request, response, next) => {
   try {
     const { collection } = request.params;
     if (!collections.has(collection)) return next();
+    if (collection === 'holdings' && isManagedInvestmentType(request.body.accountType)) return response.status(400).json({ error: 'Managed accounts use a static balance. Add this value from the managed account section instead.' });
     const item = await mutate((state) => {
       const created = { ...request.body, id: id(collection.slice(0, -1)), createdAt: new Date().toISOString() };
       state[collection].unshift(created);
@@ -132,6 +148,7 @@ app.put('/api/:collection/:itemId', async (request, response, next) => {
   try {
     const { collection, itemId } = request.params;
     if (!collections.has(collection)) return next();
+    if (collection === 'holdings' && isManagedInvestmentType(request.body.accountType)) return response.status(400).json({ error: 'Managed accounts use a static balance. Add this value from the managed account section instead.' });
     const item = await mutate((state) => {
       const index = state[collection].findIndex((entry) => entry.id === itemId);
       if (index < 0) return null;
@@ -234,6 +251,7 @@ app.post('/api/holdings/import', upload.single('file'), async (request, response
 app.post('/api/holdings/import/approve', async (request, response, next) => {
   try {
     const rows = (request.body.rows || []).filter((row) => row.include !== false && row.symbol && Number(row.shares) > 0);
+    if (rows.some((row) => isManagedInvestmentType(row.accountType))) return response.status(400).json({ error: 'Managed accounts cannot import ticker holdings. Enter their current total as a static managed balance.' });
     const imported = await mutate((state) => {
       for (const row of rows) state.holdings.unshift({ ...row, id: id('holding'), createdAt: new Date().toISOString() });
       return rows.length;
@@ -247,8 +265,9 @@ async function runMarketRefresh() {
   if (marketRefreshPromise) return marketRefreshPromise;
   marketRefreshPromise = (async () => {
     const state = getState();
-    if (!state.holdings.length) throw new Error('Add at least one holding before refreshing market data.');
-    const report = await refreshPortfolio(state.holdings, state.settings.benchmark);
+    const marketHoldings = state.holdings.filter((holding) => !isManagedInvestmentType(holding.accountType));
+    if (!marketHoldings.length) throw new Error('Add at least one self-directed stock or ETF before refreshing market data. Managed balances do not need market lookup.');
+    const report = await refreshPortfolio(marketHoldings, state.settings.benchmark);
     await mutate((current) => {
       current.marketReports.unshift(report);
       current.marketReports = current.marketReports.slice(0, 90);
@@ -273,7 +292,7 @@ setInterval(() => {
   const state = getState();
   const date = today();
   const hour = new Date().getHours();
-  if (state.holdings.length && hour >= Number(state.settings.marketRefreshHour || 18) && lastAutomaticRefresh !== date) {
+  if (state.holdings.some((holding) => !isManagedInvestmentType(holding.accountType)) && hour >= Number(state.settings.marketRefreshHour || 18) && lastAutomaticRefresh !== date) {
     lastAutomaticRefresh = date;
     runMarketRefresh().catch((error) => console.error('Automatic market refresh failed:', error.message));
   }
@@ -293,4 +312,4 @@ if (require.main === module) {
   app.listen(port, '0.0.0.0', () => console.log(`BrossefTracker is running on http://0.0.0.0:${port}`));
 }
 
-module.exports = { app, dashboard, payPeriod };
+module.exports = { app, dashboard, payPeriod, isManagedInvestmentType };
